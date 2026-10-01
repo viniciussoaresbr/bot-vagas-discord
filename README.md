@@ -2,7 +2,8 @@
 
 Bot feito com [NestJS](https://nestjs.com/) e [Necord](https://necord.org/) (discord.js). Ele busca vagas de tecnologia em repositórios de vagas do GitHub e na [Remotar](https://remotar.com.br/) e as envia para um canal do Discord.
 
-![Exemplo de vaga publicada pelo bot no Discord](docs/images/preview.png)
+<img width="1850" height="925" alt="Captura de tela de 2026-10-01 14-58-44" src="https://github.com/user-attachments/assets/a2b71211-5edc-4e72-b0e3-e437d2dbf14d" />
+
 
 ## Funcionalidades
 
