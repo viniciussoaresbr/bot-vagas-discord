@@ -210,6 +210,7 @@ export class JobsService implements OnModuleInit {
         const url = `${GITHUB_API_URL}/${repository}/issues?state=open&per_page=15`;
         const response = await firstValueFrom(
           this.httpService.get<GithubIssue[]>(url, {
+            timeout: 10_000,
             headers: {
               Accept: "application/vnd.github+json",
               "User-Agent": "bot-vagas-discord",
