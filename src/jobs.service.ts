@@ -42,6 +42,17 @@ const TECHNOLOGY_KEYWORDS = [
   "nestjs",
 ] as const;
 
+const TECHNOLOGY_PATTERNS = TECHNOLOGY_KEYWORDS.map(keyword => ({
+  keyword,
+  // ".net" pode vir colado em outra palavra, como em "asp.net".
+  pattern: new RegExp(
+    `${/^[a-z0-9]/.test(keyword) ? "(?<![a-z0-9])" : ""}${keyword.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    )}(?![a-z0-9])`,
+  ),
+}));
+
 @Injectable()
 export class JobsService implements OnModuleInit {
   private readonly logger = new Logger(JobsService.name);
@@ -247,7 +258,9 @@ export class JobsService implements OnModuleInit {
   private findTechnologies(issue: GithubIssue): string[] {
     const content = `${issue.title} ${issue.body ?? ""}`.toLowerCase();
 
-    return TECHNOLOGY_KEYWORDS.filter(keyword => content.includes(keyword));
+    return TECHNOLOGY_PATTERNS.filter(({ pattern }) =>
+      pattern.test(content),
+    ).map(({ keyword }) => keyword);
   }
 
   private createJobEmbed(
