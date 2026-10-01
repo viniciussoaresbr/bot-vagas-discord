@@ -80,6 +80,7 @@ export class JobsService implements OnModuleInit {
       const channel = await this.getJobsChannel();
       const publishedUrls = await this.getPublishedJobUrls(channel);
       const issues = await this.fetchIssuesFromGithub();
+      let notifiedCount = 0;
 
       for (const issue of issues) {
         const technologies = this.findTechnologies(issue);
@@ -93,8 +94,13 @@ export class JobsService implements OnModuleInit {
         });
 
         publishedUrls.add(issue.html_url);
+        notifiedCount++;
         this.logger.log(`Vaga notificada: ${issue.title}`);
       }
+
+      this.logger.log(
+        `Busca concluída: ${issues.length} issues analisadas, ${notifiedCount} novas vagas notificadas.`,
+      );
     } catch (error: unknown) {
       const exception =
         error instanceof Error ? error : new Error(String(error));
