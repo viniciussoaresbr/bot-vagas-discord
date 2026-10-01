@@ -1,5 +1,4 @@
-import { HttpService } from "@nestjs/axios";
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import {
@@ -10,26 +9,8 @@ import {
   RESTJSONErrorCodes,
   TextChannel,
 } from "discord.js";
-import { firstValueFrom } from "rxjs";
 
-interface GithubIssue {
-  title: string;
-  body: string | null;
-  html_url: string;
-  created_at: string;
-  pull_request?: unknown;
-}
-
-interface JobIssue extends GithubIssue {
-  repository: string;
-}
-
-const GITHUB_API_URL = "https://api.github.com/repos";
-const GITHUB_REPOSITORIES = [
-  "frontendbr/vagas",
-  "backend-br/vagas",
-  "react-brasil/vagas",
-] as const;
+import { Job, JOB_SOURCES, JobSource } from "./job-sources/job-source";
 
 const TECHNOLOGY_KEYWORDS = [
   "react",
@@ -57,7 +38,6 @@ const TECHNOLOGY_KEYWORDS = [
 
 const TECHNOLOGY_PATTERNS = TECHNOLOGY_KEYWORDS.map(keyword => ({
   keyword,
-  // ".net" pode vir colado em outra palavra, como em "asp.net".
   pattern: new RegExp(
     `${/^[a-z0-9]/.test(keyword) ? "(?<![a-z0-9])" : ""}${keyword.replace(
       /[.*+?^${}()|[\]\\]/g,
@@ -73,7 +53,7 @@ export class JobsService implements OnModuleInit {
   private isSearchRunning = false;
 
   public constructor(
-    private readonly httpService: HttpService,
+    @Inject(JOB_SOURCES) private readonly jobSources: JobSource[],
     private readonly discordClient: Client,
     configService: ConfigService,
   ) {
@@ -104,27 +84,27 @@ export class JobsService implements OnModuleInit {
 
       const channel = await this.getJobsChannel();
       const publishedUrls = await this.getPublishedJobUrls(channel);
-      const issues = await this.fetchIssuesFromGithub();
+      const jobs = await this.fetchJobsFromSources();
       let notifiedCount = 0;
 
-      for (const issue of issues) {
-        const technologies = this.findTechnologies(issue);
+      for (const job of jobs) {
+        const technologies = this.findTechnologies(job);
 
-        if (technologies.length === 0 || publishedUrls.has(issue.html_url)) {
+        if (technologies.length === 0 || publishedUrls.has(job.url)) {
           continue;
         }
 
         await channel.send({
-          embeds: [this.createJobEmbed(issue, technologies)],
+          embeds: [this.createJobEmbed(job, technologies)],
         });
 
-        publishedUrls.add(issue.html_url);
+        publishedUrls.add(job.url);
         notifiedCount++;
-        this.logger.log(`Vaga notificada: ${issue.title}`);
+        this.logger.log(`Vaga notificada (${job.source}): ${job.title}`);
       }
 
       this.logger.log(
-        `Busca concluída: ${issues.length} issues analisadas, ${notifiedCount} novas vagas notificadas.`,
+        `Busca concluída: ${jobs.length} vagas analisadas, ${notifiedCount} novas vagas notificadas.`,
       );
     } catch (error: unknown) {
       const exception =
@@ -229,66 +209,44 @@ export class JobsService implements OnModuleInit {
     return publishedUrls;
   }
 
-  private async fetchIssuesFromGithub(): Promise<JobIssue[]> {
+  private async fetchJobsFromSources(): Promise<Job[]> {
     const responses = await Promise.allSettled(
-      GITHUB_REPOSITORIES.map(async (repository): Promise<JobIssue[]> => {
-        const url = `${GITHUB_API_URL}/${repository}/issues?state=open&per_page=15`;
-        const response = await firstValueFrom(
-          this.httpService.get<GithubIssue[]>(url, {
-            timeout: 10_000,
-            headers: {
-              Accept: "application/vnd.github+json",
-              "User-Agent": "bot-vagas-discord",
-            },
-          }),
-        );
-
-        return response.data
-          .filter(issue => !issue.pull_request)
-          .map(issue => ({
-            ...issue,
-            repository,
-          }));
-      }),
+      this.jobSources.map(source => source.fetchJobs()),
     );
+    const jobs: Job[] = [];
 
-    const issues: JobIssue[] = [];
-
-    for (const response of responses) {
+    responses.forEach((response, index) => {
       if (response.status === "fulfilled") {
-        issues.push(...response.value);
+        jobs.push(...response.value);
       } else {
         this.logger.error(
-          "Falha ao consultar um repositório do GitHub.",
+          `Falha ao consultar a fonte ${this.jobSources[index].name}.`,
           this.getErrorMessage(response.reason),
         );
       }
-    }
+    });
 
-    return issues;
+    return jobs;
   }
 
-  private findTechnologies(issue: GithubIssue): string[] {
-    const content = `${issue.title} ${issue.body ?? ""}`.toLowerCase();
+  private findTechnologies(job: Job): string[] {
+    const content = `${job.title} ${job.description}`.toLowerCase();
 
     return TECHNOLOGY_PATTERNS.filter(({ pattern }) =>
       pattern.test(content),
     ).map(({ keyword }) => keyword);
   }
 
-  private createJobEmbed(
-    issue: JobIssue,
-    technologies: string[],
-  ): EmbedBuilder {
+  private createJobEmbed(job: Job, technologies: string[]): EmbedBuilder {
     const description = this.truncate(
-      issue.body?.replace(/\s+/g, " ").trim() ||
+      job.description.replace(/\s+/g, " ").trim() ||
         "Sem descrição disponível para esta vaga.",
       300,
     );
 
     return new EmbedBuilder()
-      .setTitle(this.truncate(issue.title, 256))
-      .setURL(issue.html_url)
+      .setTitle(this.truncate(job.title, 256))
+      .setURL(job.url)
       .setDescription(description)
       .setColor("#00FF7F")
       .addFields(
@@ -298,11 +256,11 @@ export class JobsService implements OnModuleInit {
         },
         {
           name: "Fonte",
-          value: issue.repository,
+          value: job.source,
         },
       )
       .setFooter({ text: "Bot Notificador de Vagas de Tecnologia" })
-      .setTimestamp(new Date(issue.created_at));
+      .setTimestamp(job.createdAt);
   }
 
   private truncate(value: string, maxLength: number): string {

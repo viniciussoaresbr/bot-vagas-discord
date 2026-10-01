@@ -5,6 +5,8 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { GatewayIntentBits } from "discord.js";
 import { NecordModule } from "necord";
 
+import { GithubJobSource } from "./job-sources/github.source";
+import { JOB_SOURCES, JobSource } from "./job-sources/job-source";
 import { JobsService } from "./jobs.service";
 
 @Module({
@@ -21,6 +23,14 @@ import { JobsService } from "./jobs.service";
     ScheduleModule.forRoot(),
     HttpModule,
   ],
-  providers: [JobsService],
+  providers: [
+    GithubJobSource,
+    {
+      provide: JOB_SOURCES,
+      inject: [GithubJobSource],
+      useFactory: (...sources: JobSource[]) => sources,
+    },
+    JobsService,
+  ],
 })
 export class AppModule {}
