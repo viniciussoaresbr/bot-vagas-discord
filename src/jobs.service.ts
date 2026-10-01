@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 
 import { Job, JOB_SOURCES, JobSource } from "./job-sources/job-source";
+import { PublishedJobsStore } from "./published-jobs.store";
 
 const TECHNOLOGY_KEYWORDS = [
   "react",
@@ -54,6 +55,7 @@ export class JobsService implements OnModuleInit {
 
   public constructor(
     @Inject(JOB_SOURCES) private readonly jobSources: JobSource[],
+    private readonly publishedJobsStore: PublishedJobsStore,
     private readonly discordClient: Client,
     configService: ConfigService,
   ) {
@@ -83,7 +85,10 @@ export class JobsService implements OnModuleInit {
       await this.waitForDiscordReady();
 
       const channel = await this.getJobsChannel();
-      const publishedUrls = await this.getPublishedJobUrls(channel);
+      const publishedUrls = new Set([
+        ...(await this.getPublishedJobUrls(channel)),
+        ...(await this.publishedJobsStore.getAll()),
+      ]);
       const jobs = await this.fetchJobsFromSources();
       let notifiedCount = 0;
 
@@ -99,6 +104,7 @@ export class JobsService implements OnModuleInit {
         });
 
         publishedUrls.add(job.url);
+        await this.publishedJobsStore.add(job.url);
         notifiedCount++;
         this.logger.log(`Vaga notificada (${job.source}): ${job.title}`);
       }

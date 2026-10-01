@@ -8,6 +8,7 @@ import { NecordModule } from "necord";
 import { GithubJobSource } from "./job-sources/github.source";
 import { JOB_SOURCES, JobSource } from "./job-sources/job-source";
 import { JobsService } from "./jobs.service";
+import { PublishedJobsStore } from "./published-jobs.store";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { JobsService } from "./jobs.service";
       inject: [GithubJobSource],
       useFactory: (...sources: JobSource[]) => sources,
     },
+    PublishedJobsStore,
     JobsService,
   ],
 })
