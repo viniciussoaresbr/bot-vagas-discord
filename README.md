@@ -1,19 +1,19 @@
 # Bot de Vagas para Discord
 
-Bot feito com [NestJS](https://nestjs.com/) e [Necord](https://necord.org/) (discord.js). Ele busca vagas de tecnologia publicadas como issues no GitHub e as envia para um canal do Discord.
+Bot feito com [NestJS](https://nestjs.com/) e [Necord](https://necord.org/) (discord.js). Ele busca vagas de tecnologia em repositórios de vagas do GitHub e na [Remotar](https://remotar.com.br/) e as envia para um canal do Discord.
 
 ![Exemplo de vaga publicada pelo bot no Discord](docs/images/preview.png)
 
 ## Funcionalidades
 
-- Consulta as issues abertas mais recentes destes repositórios:
-  - [frontendbr/vagas](https://github.com/frontendbr/vagas)
-  - [backend-br/vagas](https://github.com/backend-br/vagas)
-  - [react-brasil/vagas](https://github.com/react-brasil/vagas)
-- Filtra as vagas pelas tecnologias citadas no título ou na descrição: React, Node.js, Angular, Express e NestJS.
-- Publica cada vaga como embed com título, link, resumo da descrição, tecnologias encontradas e repositório de origem.
-- Antes de publicar, confere as últimas 100 mensagens do canal para não repetir vagas.
-- Faz uma busca ao iniciar e depois repete a cada hora.
+- Consulta vagas de duas fontes:
+  - Issues abertas mais recentes (sem pull requests) de [frontendbr/vagas](https://github.com/frontendbr/vagas), [backend-br/vagas](https://github.com/backend-br/vagas) e [react-brasil/vagas](https://github.com/react-brasil/vagas).
+  - Vagas ativas mais recentes da [Remotar](https://remotar.com.br/), pela API pública.
+- Filtra as vagas pelas tecnologias citadas no título ou na descrição, comparando palavras inteiras (por exemplo, "java" não casa com "javascript"): React, React Native, Node.js, Angular, Express, NestJS, Next.js, Vue.js, TypeScript, JavaScript, Java, Spring, Python, Django, FastAPI e Laravel.
+- Publica cada vaga como embed com título, link, resumo da descrição, tecnologias encontradas e fonte (repositório ou Remotar e empresa).
+- Publica no máximo 10 vagas por busca, priorizando as mais recentes, para não inundar o canal.
+- Não repete vagas: guarda os links já publicados em `data/published-jobs.json` e também confere as últimas 100 mensagens do canal.
+- Faz uma busca ao iniciar e depois repete a cada hora. Cada busca termina com um log de quantas vagas foram analisadas e notificadas.
 - Confere se o bot tem acesso e as permissões necessárias no canal e mostra mensagens de erro claras quando algo falta.
 
 ## Pré-requisitos
@@ -47,8 +47,9 @@ Bot feito com [NestJS](https://nestjs.com/) e [Necord](https://necord.org/) (dis
    | ------------------------- | --------------------------------------------------------------------------------------------- |
    | `DISCORD_TOKEN`           | Token do bot (Developer Portal → Bot → Reset Token).                                          |
    | `DISCORD_JOBS_CHANNEL_ID` | ID do canal onde as vagas serão publicadas (ative o Modo Desenvolvedor e use "Copiar ID do canal"). |
+   | `PUBLISHED_JOBS_FILE`     | Opcional. Arquivo onde ficam os links já publicados. Padrão: `data/published-jobs.json`.        |
 
-   > O `.env` já está no `.gitignore`. Nunca faça commit do token.
+   > O `.env` e a pasta `data/` já estão no `.gitignore`. Nunca faça commit do token.
 
 ## Execução
 
@@ -75,11 +76,20 @@ npm run start:prod
 
 ```
 src/
-├── main.ts           # bootstrap da aplicação
-├── app.module.ts     # módulos: Config, Necord (Discord), Schedule e Http
-└── jobs.service.ts   # busca, filtro e publicação das vagas
+├── main.ts                    # bootstrap da aplicação
+├── app.module.ts              # módulos (Config, Necord, Schedule, Http) e fontes de vagas
+├── jobs.service.ts            # agendamento, filtro e publicação das vagas
+├── published-jobs.store.ts    # registro em disco das vagas já publicadas
+└── job-sources/
+    ├── job-source.ts          # interface comum das fontes de vagas
+    ├── github.source.ts       # issues dos repositórios de vagas do GitHub
+    └── remotar.source.ts      # API pública da Remotar
 ```
 
 ## Personalização
 
-Os repositórios consultados e as tecnologias filtradas ficam nas constantes `GITHUB_REPOSITORIES` e `TECHNOLOGY_KEYWORDS`, em `src/jobs.service.ts`. Para mudar a frequência da busca, altere a expressão do `@Cron` no mesmo arquivo.
+- **Tecnologias filtradas:** constante `TECHNOLOGY_KEYWORDS`, em `src/jobs.service.ts`.
+- **Limite por busca:** constante `MAX_JOBS_PER_SEARCH`, no mesmo arquivo.
+- **Frequência da busca:** expressão do `@Cron`, no mesmo arquivo.
+- **Repositórios do GitHub:** constante `GITHUB_REPOSITORIES`, em `src/job-sources/github.source.ts`.
+- **Nova fonte de vagas:** crie uma classe que implemente `JobSource` em `src/job-sources/` e registre-a nos `providers` e na factory de `JOB_SOURCES`, em `src/app.module.ts`.
