@@ -264,7 +264,7 @@ export class JobsService implements OnModuleInit {
         },
         {
           name: "Fonte",
-          value: job.source,
+          value: job.company ? `${job.source} · ${job.company}` : job.source,
         },
       )
       .setFooter({ text: "Bot Notificador de Vagas de Tecnologia" })

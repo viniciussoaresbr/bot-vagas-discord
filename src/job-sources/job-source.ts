@@ -4,6 +4,7 @@ export interface Job {
   url: string;
   createdAt: Date;
   source: string;
+  company?: string;
 }
 
 export interface JobSource {

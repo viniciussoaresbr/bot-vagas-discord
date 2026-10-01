@@ -7,6 +7,7 @@ import { NecordModule } from "necord";
 
 import { GithubJobSource } from "./job-sources/github.source";
 import { JOB_SOURCES, JobSource } from "./job-sources/job-source";
+import { RemotarJobSource } from "./job-sources/remotar.source";
 import { JobsService } from "./jobs.service";
 import { PublishedJobsStore } from "./published-jobs.store";
 
@@ -26,9 +27,10 @@ import { PublishedJobsStore } from "./published-jobs.store";
   ],
   providers: [
     GithubJobSource,
+    RemotarJobSource,
     {
       provide: JOB_SOURCES,
-      inject: [GithubJobSource],
+      inject: [GithubJobSource, RemotarJobSource],
       useFactory: (...sources: JobSource[]) => sources,
     },
     PublishedJobsStore,
