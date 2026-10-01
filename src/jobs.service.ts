@@ -103,6 +103,8 @@ export class JobsService implements OnModuleInit {
         "Não foi possível buscar ou notificar as vagas.",
         exception.stack,
       );
+    } finally {
+      this.isSearchRunning = false;
     }
   }
 
