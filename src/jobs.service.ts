@@ -40,6 +40,19 @@ const TECHNOLOGY_KEYWORDS = [
   "express",
   "nest.js",
   "nestjs",
+  "next.js",
+  "nextjs",
+  "vue.js",
+  "vue",
+  "react native",
+  "typescript",
+  "javascript",
+  "java",
+  "spring",
+  "python",
+  "django",
+  "fastapi",
+  "laravel",
 ] as const;
 
 const TECHNOLOGY_PATTERNS = TECHNOLOGY_KEYWORDS.map(keyword => ({
