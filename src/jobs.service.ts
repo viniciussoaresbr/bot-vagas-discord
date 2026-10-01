@@ -13,6 +13,8 @@ import {
 import { Job, JOB_SOURCES, JobSource } from "./job-sources/job-source";
 import { PublishedJobsStore } from "./published-jobs.store";
 
+const MAX_JOBS_PER_SEARCH = 10;
+
 const TECHNOLOGY_KEYWORDS = [
   "react",
   "node.js",
@@ -90,27 +92,27 @@ export class JobsService implements OnModuleInit {
         ...(await this.publishedJobsStore.getAll()),
       ]);
       const jobs = await this.fetchJobsFromSources();
-      let notifiedCount = 0;
+      const newJobs = jobs
+        .map(job => ({ job, technologies: this.findTechnologies(job) }))
+        .filter(
+          ({ job, technologies }) =>
+            technologies.length > 0 && !publishedUrls.has(job.url),
+        )
+        .sort((a, b) => b.job.createdAt.getTime() - a.job.createdAt.getTime())
+        .slice(0, MAX_JOBS_PER_SEARCH)
+        .reverse();
 
-      for (const job of jobs) {
-        const technologies = this.findTechnologies(job);
-
-        if (technologies.length === 0 || publishedUrls.has(job.url)) {
-          continue;
-        }
-
+      for (const { job, technologies } of newJobs) {
         await channel.send({
           embeds: [this.createJobEmbed(job, technologies)],
         });
 
-        publishedUrls.add(job.url);
         await this.publishedJobsStore.add(job.url);
-        notifiedCount++;
         this.logger.log(`Vaga notificada (${job.source}): ${job.title}`);
       }
 
       this.logger.log(
-        `Busca concluída: ${jobs.length} vagas analisadas, ${notifiedCount} novas vagas notificadas.`,
+        `Busca concluída: ${jobs.length} vagas analisadas, ${newJobs.length} novas vagas notificadas.`,
       );
     } catch (error: unknown) {
       const exception =
