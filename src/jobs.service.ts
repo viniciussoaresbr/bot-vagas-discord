@@ -17,6 +17,7 @@ interface GithubIssue {
   body: string | null;
   html_url: string;
   created_at: string;
+  pull_request?: unknown;
 }
 
 interface JobIssue extends GithubIssue {
@@ -218,10 +219,12 @@ export class JobsService implements OnModuleInit {
           }),
         );
 
-        return response.data.map(issue => ({
-          ...issue,
-          repository,
-        }));
+        return response.data
+          .filter(issue => !issue.pull_request)
+          .map(issue => ({
+            ...issue,
+            repository,
+          }));
       }),
     );
 
