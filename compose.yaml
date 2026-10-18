@@ -1,0 +1,33 @@
+name: bot-vagas-discord
+
+services:
+  bot:
+    build: .
+    image: bot-vagas-discord:latest
+    restart: unless-stopped
+    # tini como PID 1: repassa o SIGTERM ao Node e recolhe processos órfãos.
+    init: true
+    stop_grace_period: 15s
+    # DISCORD_TOKEN, DISCORD_JOBS_CHANNEL_ID e opcionais; o .env fica só no servidor.
+    env_file: .env
+    environment:
+      PUBLISHED_JOBS_FILE: /app/data/published-jobs.json
+    # Sem "ports": o bot só faz conexões de saída. O servidor HTTP do main.ts
+    # continua escutando dentro do container, mas não é publicado.
+    volumes:
+      - bot-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  bot-data:
