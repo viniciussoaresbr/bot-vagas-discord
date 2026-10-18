@@ -2,7 +2,7 @@
 
 Bot feito com [NestJS](https://nestjs.com/) e [Necord](https://necord.org/) (discord.js). Ele busca vagas de tecnologia em repositórios de vagas do GitHub e na [Remotar](https://remotar.com.br/) e as envia para um canal do Discord.
 
-> **Observação:** O bot está hospedado e em execução em produção no [Render](https://render.com/).
+> **Observação:** O bot roda em produção em um servidor doméstico Debian, em um container Docker gerenciado pelo Docker Compose (veja [Implantação com Docker](#implantação-com-docker-servidor-debian)).
 
 <img width="1850" height="925" alt="Captura de tela de 2026-10-01 14-58-44" src="https://github.com/user-attachments/assets/a2b71211-5edc-4e72-b0e3-e437d2dbf14d" />
 
@@ -65,6 +65,40 @@ npm run start:dev
 npm run build
 npm run start:prod
 ```
+
+## Implantação com Docker (servidor Debian)
+
+Em produção, o bot roda em um container Docker gerenciado pelo Docker Compose, em um servidor Linux acessado por SSH.
+
+* **Imagem:** build multi-stage com Node.js 22, executada com usuário sem privilégios (`Dockerfile`).
+* **Execução contínua:** `restart: unless-stopped` reinicia o bot após falhas e após reiniciar o servidor, sem depender de sessão SSH aberta.
+* **Segredos:** o `.env` é criado direto no servidor (a partir do `.env.example`, com permissão `600`) e nunca entra na imagem nem no Git.
+* **Persistência:** as vagas já publicadas ficam no volume `bot-data`.
+* **Rede:** nenhuma porta é publicada, pois o bot só faz conexões de saída.
+
+> A política de reinício não resolve queda de energia, falta de internet ou indisponibilidade do Discord. Para o endereço do servidor não mudar, faça uma reserva DHCP no roteador.
+
+### Fluxo de implantação
+
+1. Configure o acesso SSH por chave ao servidor e um atalho no `~/.ssh/config` (o script usa `debian-server` por padrão).
+2. No servidor, garanta que o Docker esteja habilitado na inicialização e que o usuário esteja no grupo `docker`.
+3. Envie o projeto com `scripts/deploy.sh [host] [diretório]`. Ele usa `rsync` e não envia `node_modules`, `dist`, `data`, `.git` nem o `.env`.
+4. No servidor, crie o `.env` a partir do `.env.example` e inicie o bot com `./scripts/bot.sh up`.
+
+### Gerenciamento
+
+No servidor, o `scripts/bot.sh` reúne os comandos do Docker Compose:
+
+| Comando   | Para que serve                                       |
+| --------- | ---------------------------------------------------- |
+| `up`      | Iniciar ou atualizar após um deploy                  |
+| `stop`    | Parar o bot                                          |
+| `restart` | Reiniciar (por exemplo, após alterar o `.env`)       |
+| `status`  | Estado do container                                  |
+| `logs`    | Acompanhar os logs                                   |
+| `rebuild` | Reconstruir a imagem com a imagem base atualizada    |
+| `shell`   | Entrar no container para diagnóstico                 |
+| `stats`   | Consumo de CPU e memória                             |
 
 ## Scripts
 
